@@ -160,9 +160,8 @@ function parseURIProxy(line: string): ProfileProxy | null {
 }
 
 function getProxyKey(proxy: ProfileProxy): string {
-  return `${proxy.type}-${proxy.address}-${proxy.username ?? ""}-${
-    proxy.password ?? ""
-  }`;
+  return `${proxy.type}-${proxy.address}-${proxy.username ?? ""}-${proxy.password ?? ""
+    }`;
 }
 
 const proxyTypeToIcon = (type: keyof typeof ProxyProto_Type) =>
@@ -487,6 +486,8 @@ function ExtraHeader(props: { table: ReactTable<ProfileProxy> }) {
     const total = selectedRows.length;
     let failed = 0;
     let success = 0;
+    // Collect failed proxies for batch deletion at the end
+    const failedProxies: string[] = [];
     const loadingReport = () =>
       t("proxy.checkToast.loading", {
         checked: success + failed,
@@ -510,6 +511,10 @@ function ExtraHeader(props: { table: ReactTable<ProfileProxy> }) {
         const data = r.data;
         switch (data.oneofKind) {
           case "end": {
+            // Batch delete all failed proxies at once
+            if (failedProxies.length > 0) {
+              await removeProxiesBatchMutation(failedProxies);
+            }
             toast.success(
               t("proxy.checkToast.success", {
                 count: failed,
@@ -530,10 +535,10 @@ function ExtraHeader(props: { table: ReactTable<ProfileProxy> }) {
               success++;
             } else {
               failed++;
-              // Remove the invalid proxy by address
+              // Collect failed proxy address for batch deletion
               const proxyToRemove = data.single.proxy;
               if (proxyToRemove) {
-                await removeProxiesBatchMutation([proxyToRemove.address]);
+                failedProxies.push(proxyToRemove.address);
               }
             }
 

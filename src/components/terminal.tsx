@@ -201,27 +201,27 @@ export const TerminalComponent = (props: { scope: LogScope }) => {
   const [entries, setEntries] = useState<TerminalLine[]>(
     isDemo()
       ? [
-          convertLine({
-            id: "demo-1",
-            message: t("terminal.demo-1"),
-            personal: false,
-          }),
-          convertLine({
-            id: "demo-2",
-            message: t("terminal.demo-2"),
-            personal: false,
-          }),
-          convertLine({
-            id: "demo-3",
-            message: t("terminal.demo-3"),
-            personal: false,
-          }),
-          convertLine({
-            id: "demo-4",
-            message: t("terminal.demo-4"),
-            personal: false,
-          }),
-        ]
+        convertLine({
+          id: "demo-1",
+          message: t("terminal.demo-1"),
+          personal: false,
+        }),
+        convertLine({
+          id: "demo-2",
+          message: t("terminal.demo-2"),
+          personal: false,
+        }),
+        convertLine({
+          id: "demo-3",
+          message: t("terminal.demo-3"),
+          personal: false,
+        }),
+        convertLine({
+          id: "demo-4",
+          message: t("terminal.demo-4"),
+          personal: false,
+        }),
+      ]
       : [],
   );
   const transport = use(TransportContext);
@@ -307,6 +307,8 @@ export const TerminalComponent = (props: { scope: LogScope }) => {
 
   useEffect(() => {
     const abortController = new AbortController();
+    // Track timeouts for cleanup to prevent memory leaks
+    const timeoutIds: ReturnType<typeof setTimeout>[] = [];
 
     function connect() {
       if (transport === null) {
@@ -330,13 +332,14 @@ export const TerminalComponent = (props: { scope: LogScope }) => {
         }
 
         console.error(error);
-        setTimeout(() => {
+        const timeoutId = setTimeout(() => {
           if (abortController.signal.aborted) {
             return;
           }
 
           connect();
         }, 3_000);
+        timeoutIds.push(timeoutId);
       });
       responses.onComplete(() => {
         if (abortController.signal.aborted) {
@@ -344,13 +347,14 @@ export const TerminalComponent = (props: { scope: LogScope }) => {
         }
 
         console.error("Stream completed");
-        setTimeout(() => {
+        const timeoutId = setTimeout(() => {
           if (abortController.signal.aborted) {
             return;
           }
 
           connect();
         }, 1000);
+        timeoutIds.push(timeoutId);
       });
       responses.onMessage((response) => {
         const message = response.message;
@@ -374,6 +378,10 @@ export const TerminalComponent = (props: { scope: LogScope }) => {
 
     return () => {
       abortController.abort();
+      // Clear all pending timeouts to prevent memory leaks
+      for (const timeoutId of timeoutIds) {
+        clearTimeout(timeoutId);
+      }
     };
   }, [props.scope, transport]);
 
